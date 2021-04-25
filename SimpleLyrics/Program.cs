@@ -7,36 +7,25 @@ namespace SimpleLyrics
 {
     class Program
     {
-        static string MusicGroup;
-        static string SongName;
-
         static void Main(string[] args)
         {
-            bool IsRunning = true;
+            App.Start();
 
-            while(IsRunning)
+            while (App.IsActive)
             {
-                Menu();
+                Song CurrentSong = PrepareSong();
+                JObject JSONLyrics = GetJSONLyrics(CurrentSong);
 
-                string json = GET(MusicGroup, SongName);
-                JObject jObject = ParseJson(json);
-
-                WriteLyrics(jObject);
-
-                Console.WriteLine("Желаете продолжить (Y/N): ");
-                char key = GetPressedKeyLowerCase();
-                IsRunning = SelectAppState(key);
+                WriteLyrics(JSONLyrics);
+                ControlMenuState();
             }
         }
-        static void Menu()
+        static JObject GetJSONLyrics(Song CurrentSong)
         {
-            Console.Clear();
+            string json = GET(CurrentSong);
+            JObject jObject = ParseJson(json);
 
-            MusicGroup = ReadStringWithMessage("Введите название группы");
-            SongName = ReadStringWithMessage("Введите название композиции");
-
-            MusicGroup = ProcessStringForRequest(MusicGroup);
-            SongName = ProcessStringForRequest(SongName);
+            return jObject;
         }
         static JObject ParseJson(string json)
         {
@@ -45,9 +34,9 @@ namespace SimpleLyrics
 
             return jObject;
         }
-        static string GET(string MusicGroup, string SongName)
+        static string GET(Song song)
         {
-            WebResponse webResponse = GetWebResponse(MusicGroup + "/" + SongName);
+            WebResponse webResponse = GetWebResponse(song.Compositor + "/" + song.Name);
             string output = ReadResponse(webResponse);
 
             return output;
@@ -80,6 +69,27 @@ namespace SimpleLyrics
             Console.Clear();
             Console.WriteLine(jObject["lyrics"]);
         }
+        static Song PrepareSong()
+        {
+            Song song = CreateSong();
+            ProcessSongDataForRequest(song);
+
+            return song;
+        }
+        static void ProcessSongDataForRequest(Song song)
+        {
+            song.Compositor = ProcessStringForRequest(song.Compositor);
+            song.Name = ProcessStringForRequest(song.Name);
+        }
+        static Song CreateSong()
+        {
+            string Compositor = ReadStringWithMessage("Введите название группы");
+            string SongName = ReadStringWithMessage("Введите название композиции");
+
+            Song song = new Song(Compositor, SongName);
+
+            return song;
+        }
         static string ProcessStringForJSON(string str)
         {
             if (str.Contains("\\n\\n"))
@@ -99,14 +109,27 @@ namespace SimpleLyrics
             Console.WriteLine(message);
             return Console.ReadLine();
         }
-        static bool SelectAppState(char key)
+        static void ControlMenuState()
         {
-            if (key == 'y') return true;
-            else return false;
+            char key = AskPermisionForContinue();
+            ChangeAppState(key);
+        }
+        static char AskPermisionForContinue()
+        {
+            Console.WriteLine("Желаете продолжить (Y/N): ");
+            char key = GetPressedKeyLowerCase();
+
+            return key;
+        }
+        static void ChangeAppState(char key)
+        {
+            if (key != 'y') App.Stop();
+            else App.Start();
         }
         static char GetPressedKeyLowerCase()
         {
             char ch = Console.ReadKey().KeyChar;
+            Console.Clear();
             ch = ch.ToString().ToLower()[0];
 
             return ch;
